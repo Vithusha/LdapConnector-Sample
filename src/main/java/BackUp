@@ -1,0 +1,275 @@
+package main.java;
+
+/**
+ * Created by wso2 on 8/25/16.
+ */
+import com.sun.org.apache.xpath.internal.SourceTree;
+
+import java.io.IOException;
+import java.util.Hashtable;
+
+import javax.naming.Context;
+import javax.naming.NameNotFoundException;
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.directory.*;
+import javax.naming.ldap.*;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSession;
+
+
+
+
+/**
+ * Demonstrates how to retrieve all attributes of a named object.
+ *
+ * usage: java StartTLS
+ */
+class StartTLS implements ExtendedResponse {
+
+    static void printAttrs(Attributes attrs) {
+        if (attrs == null) {
+            System.out.println("No attributes");
+        } else {
+      /* Print each attribute */
+            try {
+                for (NamingEnumeration ae = attrs.getAll(); ae.hasMore();) {
+                    Attribute attr = (Attribute) ae.next();
+                    System.out.println("attribute: " + attr.getID());
+
+          /* print each value */
+                    for (NamingEnumeration e = attr.getAll(); e.hasMore(); System.out
+                            .println("value: " + e.next()))
+                        ;
+                }
+            } catch (NamingException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    public void addEntry(DirContext ctx,String name_cn,String name_sn,String name_title,String role)
+    {
+        /*
+        try
+        {
+
+            Attributes atbs = new  BasicAttributes();
+            Attribute atbUid = new BasicAttribute("uid","1121");
+            Attribute atbCn = new BasicAttribute("cn","Test User");
+            Attribute atbSn= new BasicAttribute("sn","Test User");
+            Attribute atbMail = new BasicAttribute("mail","java2db@mail.com");
+            Attribute atbPassword = new BasicAttribute("userPassword","password");
+            Attribute atbObjClass = new BasicAttribute("objectClass","inetOrgPerson");
+
+            atbs.put(atbUid);
+            atbs.put(atbCn);
+            atbs.put(atbSn);
+            atbs.put(atbMail);
+            atbs.put(atbPassword);
+            atbs.put(atbObjClass);
+
+            ctx.createSubcontext("uid=1121,ou=People,dc=wso2,dc=com", atbs);
+            System.out.println("Entry Added successfully");
+        }
+        catch(Exception exception)
+        {
+            exception.printStackTrace();
+        }
+        */
+
+        try{
+            // Create a new set of attributes
+            BasicAttributes attrs = new BasicAttributes();
+
+
+
+            // The item is an organizationalPerson, which is a subclass of person.
+            // Person is a subclass of top. Store the class hierarchy in the
+            // objectClass attribute
+            Attribute classes = new BasicAttribute("objectclass");
+            classes.add("top");
+            classes.add("person");
+            classes.add("organizationalPerson");
+
+            // Add the objectClass attribute to the attribute set
+            attrs.put(classes);
+
+            // Store the other attributes in the attribute set
+            attrs.put("sn", name_sn);
+            attrs.put("title", name_title);
+            // attrs.put("mail", "samantha@wutka.com");
+
+            // Add the new entry to the directory server
+            ctx.createSubcontext("ldap://ldap.wso2.com/"+name_cn+","+
+                    role+",dc=wso2,dc=com", attrs);
+
+            // Create another set of attributes
+            attrs = new BasicAttributes();
+
+            // Use the same objectClass attribute as before
+            attrs.put(classes);
+
+        }
+        catch (Exception exc)
+        {
+            exc.printStackTrace();
+        }
+    }
+
+
+    public void getNameList(String cn,DirContext ctx) {
+
+
+        NamingEnumeration results = null;
+        try {
+            SearchControls controls = new SearchControls();
+            controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+
+            if (cn != null && !cn.equalsIgnoreCase("")) {
+
+
+                results = ctx.search("", "(cn=" + cn + ")", controls);
+                System.out.println(cn +" is cn");
+            } else {
+                System.out.println("No results found");
+            }
+            while (results.hasMore()) {
+
+                SearchResult searchResult = (SearchResult) results.next();
+                Attributes attributes = searchResult.getAttributes();
+                System.out.println("Full Name:  " + attributes.get("cn").get());
+                if (attributes.get("givenName") != null)
+                    System.out.println("First Name:  " + attributes.get("givenName").get());
+                System.out.println("Last Name: " + attributes.get("sn").get());
+
+            }
+
+        }
+        catch (Exception e)
+        {
+            System.out.println("Error : " + e);
+        }
+        finally
+        {
+            if (results != null) {
+                try
+                {
+                    results.close();
+                }
+                catch (Exception e) {
+                    System.out.println("Error : " + e);
+                }
+            }
+        }
+    }
+
+    public void getRoleList(String ou,DirContext ctx) {
+
+
+        NamingEnumeration results = null;
+        try {
+            SearchControls controls = new SearchControls();
+            controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+
+            if (ou != null && !ou.equalsIgnoreCase("")) {
+
+
+                results = ctx.search("", "(ou=" + ou + ")", controls);
+                System.out.println(ou +" is ou");
+            } else {
+                System.out.println("No results found");
+            }
+            while (results.hasMore()) {
+
+                SearchResult searchResult = (SearchResult) results.next();
+
+                Attributes attributes = searchResult.getAttributes();
+                System.out.println( attributes.get("dc=wso2,dc=com").get());
+
+            }
+
+        }
+        catch (Exception e)
+        {
+            System.out.println("Error : " + e);
+        }
+        finally
+        {
+            if (results != null) {
+                try
+                {
+                    results.close();
+                }
+                catch (Exception e) {
+                    System.out.println("Error : " + e);
+                }
+            }
+        }
+    }
+    public static void main(String[] args) {
+
+        // Set up environment for creating initial context
+        Hashtable env = new Hashtable(11);
+        env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        env.put(Context.PROVIDER_URL, "ldap://localhost:389/dc=wso2,dc=com");
+        env.put(Context.SECURITY_AUTHENTICATION,"Simple");
+        env.put(Context.SECURITY_PRINCIPAL,"cn=admin,dc=wso2,dc=com");
+        env.put(Context.SECURITY_CREDENTIALS,"admin");
+
+
+
+        try
+        {
+            // Create initial context
+            LdapContext ctx = new InitialLdapContext(env, null);
+            System.out.println("Connection established");
+
+
+            Attributes attrs = ctx.getAttributes("ldap://localhost:389", new String[]{"supportedextension"});
+            printAttrs(attrs);
+            System.out.println(ctx.getAttributes(""));
+
+            // Start TLS
+            StartTlsResponse tls =
+                    (StartTlsResponse) ctx.extendedOperation(new StartTlsRequest());
+
+
+            tls.setHostnameVerifier( new HostnameVerifier()
+            {
+                public boolean verify( String hostname, SSLSession session )
+                {
+                    return true;
+                }
+            } );
+
+            SSLSession session = tls.negotiate();
+            //new StartTLS().getRoleList("manager",ctx);
+            new StartTLS().addEntry(ctx,"Dyan","Srinath","Senior Manager","ou=manager,ou=people");
+
+            // new StartTLS().addEntry(ctx);
+
+            // Stop TLS
+            tls.close();
+
+            // Close the context when we're done
+            ctx.close();
+
+        } catch (NamingException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public String getID() {
+        return null;
+    }
+
+    @Override
+    public byte[] getEncodedValue() {
+        return new byte[0];
+    }
+}
